@@ -1,0 +1,50 @@
+name: Real AI and Lighthouse evidence
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/real-ai-evidence.yml'
+      - 'scripts/real-ai-evidence.mjs'
+permissions:
+  contents: read
+jobs:
+  local-gemma-and-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install app
+        run: npm install --no-audit --no-fund
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+      - name: Start Ollama and pull open-weight Gemma model
+        run: |
+          OLLAMA_HOST=127.0.0.1:11434 ollama serve >/tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break
+            sleep 2
+          done
+          ollama pull gemma3:1b
+      - name: Build Next.js app
+        run: npm run build
+      - name: Start app
+        run: |
+          OLLAMA_MODEL=gemma3:1b npm run start -- -p 3000 >/tmp/ncode-app.log 2>&1 &
+          for i in $(seq 1 40); do
+            curl -fsS http://127.0.0.1:3000 >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          cat /tmp/ncode-app.log
+          exit 1
+      - name: Run real model inference and public site audit
+        run: node scripts/real-ai-evidence.mjs
+      - name: Upload real output and status (even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ncode-real-ai-evidence
+          path: evidence/
+          if-no-files-found: warn
