@@ -6,7 +6,7 @@ export async function POST(req:NextRequest){
  let input:unknown;try{input=await req.json()}catch{return error("Invalid JSON",400)}
  const submittedUrl=input&&typeof input==="object"?(input as Record<string,unknown>).url:undefined;
  if(typeof submittedUrl!=="string")return error("Website URL required",400);
- let target:string;try{target=validateUrl(submittedUrl)catch(e){return error((e as Error).message,400)}
+ let target:string;try{target=validateUrl(submittedUrl)}catch(e){return error((e as Error).message,400)}
  const api=new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed");
  api.searchParams.set("url",target);api.searchParams.set("strategy","mobile");
  for(const name of ["PERFORMANCE","ACCESSIBILITY","SEO","BEST_PRACTICES"])api.searchParams.append("category",name);
